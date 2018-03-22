@@ -166,3 +166,21 @@ class WebCrawler():
                 self.kill = True
                 boolStatus = False
             return boolStatus
+
+def saveDataToFile(listData):
+    '''Save output data in a file under current directory'''
+    
+    boolToReturn = True
+    fileName = None
+    try:
+        path = os.getcwd()
+        fileName = path + "/" +"output.txt"
+        file_obj = codecs.open(fileName,'w')
+        for eachLink in listData:
+            file_obj.write(str(eachLink) + "\n")
+    except Exception as e:
+        boolToReturn = False
+        print("Unknown exception occured in saving data to file " + str(e))
+        traceback.print_exc()
+    finally:
+        return boolToReturn, fileName
