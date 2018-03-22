@@ -44,3 +44,23 @@ class WorkerThread(threading.Thread):
                 traceback.print_exc()
         print("Stopping Worker : " + str(self.name))
 
+
+class URL():
+    def __init__(self, strURL):
+        self.url = strURL
+        self.netloc = None
+        self.scheme = None
+        self.validateURL()
+
+    def validateURL(self):
+        """Do url validation"""
+
+        parse_url = urlparse(self.url)
+        if parse_url.netloc:
+            self.netloc = parse_url.netloc
+        else:
+            self.valid = False
+        if parse_url.scheme:
+            self.scheme = parse_url.scheme
+        else:
+            self.valid = False
