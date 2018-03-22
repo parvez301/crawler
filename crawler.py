@@ -168,7 +168,7 @@ class WebCrawler():
             return boolStatus
 
 def saveDataToFile(listData):
-    '''Save output data in a file under current directory'''
+    """Save output data in a file under current directory"""
     
     boolToReturn = True
     fileName = None
@@ -184,3 +184,28 @@ def saveDataToFile(listData):
         traceback.print_exc()
     finally:
         return boolToReturn, fileName
+
+
+if __name__ == '__main__':
+    try:
+        if len(sys.argv) == 3:
+            MAX_COUNT_LIMIT = int(sys.argv[2])
+        CRAWL_BUFFER.append(str(sys.argv[1]))
+        VISITED_URLS.setdefault(str(sys.argv[1]), "True")
+        web_crawler = WebCrawler()
+        while web_crawler.listworkers[0].is_alive():
+            web_crawler.listworkers[0].join(1)
+    except KeyboardInterrupt:
+        print("**************** Keyboard interrupt occured. Stopping all threads *******************")
+        exit(0)
+    except Exception as e:
+        print("Unknown exception occured in main" + str(e))
+        traceback.print_exc()
+    finally:
+        boolStatus, fileName = saveDataToFile(VISITED_URLS.keys())
+        if boolStatus:
+            print("Links saved in the repository " + str(fileName) + " successfully")
+            print("Number of links : "  + str(len(VISITED_URLS)))
+        else:
+            print("Unable to save links " + str(VISITED_URLS))
+        web_crawler.kill = True
