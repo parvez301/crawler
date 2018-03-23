@@ -1,15 +1,15 @@
-import urllib.request as urlcon
-from urllib.parse import urlparse
-from urllib.parse import urlunparse
-from urllib.error import URLError, HTTPError
-from bs4 import BeautifulSoup
 import sys
 import socket
 import os
 import codecs
 import time
-import threading
 import traceback
+import requests
+from urllib.parse import urlparse
+from urllib.parse import urlunparse
+from urllib.error import URLError, HTTPError
+from bs4 import BeautifulSoup
+from threading import Thread, Lock
 from collections import deque
 
 VISITED_URLS = {}
@@ -20,9 +20,9 @@ WORKER_WAIT_INTERVAL = 1
 MAX_COUNT_LIMIT = None
 
 
-class WorkerThread(threading.Thread):
+class WorkerThread(Thread):
     def __init__(self, crawler, name):
-        threading.Thread.__init__(self)
+        Thread.__init__(self)
         self.__crawler = crawler
         self.name = name
     
@@ -32,7 +32,7 @@ class WorkerThread(threading.Thread):
         while not self.__crawler.kill and self.is_alive():
             try:
                 if len(CRAWL_BUFFER) > 0:
-                    strURL = CRAWL_BUFFER.poplef()
+                    strURL = CRAWL_BUFFER.popleft()
                     urlObj = URL(strURL)
                     print("URL " + str(urlObj.url) + " about to be crawled by worker: " + str(self.name))
                     self.__crawler.crawl(urlObj)
@@ -50,11 +50,11 @@ class URL():
         self.url = strURL
         self.netloc = None
         self.scheme = None
+        self.valid = True
         self.validateURL()
 
     def validateURL(self):
         """Do url validation"""
-
         parse_url = urlparse(self.url)
         if parse_url.netloc:
             self.netloc = parse_url.netloc
@@ -67,7 +67,7 @@ class URL():
 
 
 class WebCrawler():
-    _lock = threading.lock()
+    _lock = Lock()
     kill = False
     count = 0
     listworkers = []
@@ -93,9 +93,9 @@ class WebCrawler():
         """Main Function which crawl URL's """
         try:
             if ((urlObj.valid) and (urlObj.url not in CRAWLED_URLS.keys())):
-                rsp = urlcon.urlopen(urlObj.url, timeout=2)
-                page = rsp.read()
-                soup = BeautifulSoup(page)
+                response = requests.get(urlObj.url, timeout=2)
+                page = response.text
+                soup = BeautifulSoup(page, "lxml")
                 links = self.scrap(soup)
                 boolStatus = self.checkmax()
                 if boolStatus:
@@ -115,12 +115,12 @@ class WebCrawler():
                                 newURL = urlunparse(parsed_url._replace(**{"scheme":urlObj.scheme,"netloc":urlObj.netloc}))
                                 link = newURL
                             elif not parsed_url.scheme:
-                                print("Scheme not found for "     + str(link))
+                                print("Scheme not found for " + str(link))
                                 newURL = urlunparse(parsed_url._replace(**{"scheme":urlObj.scheme}))
                                 link = newURL
                             # Check again for internal URLs
                             if link not in VISITED_URLS:
-                                print(" Found child link " + link)
+                                print("Found child link " + link)
                                 CRAWL_BUFFER.append(link)
                                 with self._lock:
                                     self.count += 1
@@ -151,25 +151,24 @@ class WebCrawler():
             print("Unknown exception occured while fetching HTML code" + str(e))
             traceback.print_exc()
 
-        def scrap(self, soup):
-            """Scrap all links"""
-            rec_links = []
-            for link in soup.find_all('a'):
-                rec_links.append(link.get('href'))
-            return rec_links
+    def scrap(self, soup):
+        """Scrap all links"""
+        rec_links = []
+        for link in soup.find_all('a'):
+            rec_links.append(link.get('href'))
+        return rec_links
 
-        def checkmax(self):
-            """Check if upper limit on URL's to be scrapped is reached or not"""
-            boolStatus = True
-            if MAX_COUNT_LIMIT and self.count >= MAX_COUNT_LIMIT:
-                print(" Maximum count reached. Now exiting and stopping workers :( ")
-                self.kill = True
-                boolStatus = False
-            return boolStatus
+    def checkmax(self):
+        """Check if upper limit on URL's to be scrapped is reached or not"""
+        boolStatus = True
+        if MAX_COUNT_LIMIT and self.count >= MAX_COUNT_LIMIT:
+            print(" Maximum count reached. Now exiting and stopping workers :( ")
+            self.kill = True
+            boolStatus = False
+        return boolStatus
 
 def saveDataToFile(listData):
     """Save output data in a file under current directory"""
-    
     boolToReturn = True
     fileName = None
     try:
